@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login | Deteksi Korosi Lambung Kapal</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="login-shell">
+      <section class="login-hero">
+        <div class="brand-block">
+          <span class="brand-mark">CH</span>
+          <div>
+            <strong>Corrosion Hull</strong>
+            <span>Inspection System</span>
+          </div>
+        </div>
+        <div>
+          <p class="eyebrow">Ship Hull Computer Vision</p>
+          <h1>Deteksi korosi lambung kapal dari citra inspeksi drone.</h1>
+        </div>
+      </section>
+
+      <section class="login-view">
+        <form id="loginForm" class="panel login-panel">
+          <p class="eyebrow">Secure Access</p>
+          <h2>Masuk ke Sistem</h2>
+
+          <label class="field">
+            <span>Username</span>
+            <input id="loginUsername" type="text" autocomplete="username" required />
+          </label>
+
+          <label class="field">
+            <span>Password</span>
+            <input id="loginPassword" type="password" autocomplete="current-password" required />
+          </label>
+
+          <button id="loginButton" type="submit">Login</button>
+          <p id="loginMessage" class="message"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="/static/login.js?v=2"></script>
+  </body>
+</html>

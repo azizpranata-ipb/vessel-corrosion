@@ -1,0 +1,18 @@
+model:
+  path: models/best.pt
+  confidence_threshold: 0.25
+  iou_threshold: 0.45
+  image_size: 640
+
+segmentation:
+  min_area_px: 50
+  kernel_size: 5
+  lower_hsv: [0, 20, 20]
+  upper_hsv: [35, 255, 255]
+  use_adaptive_fallback: true
+
+severity:
+  # Based on total corrosion area divided by whole image area.
+  mild_max_ratio: 0.01
+  moderate_max_ratio: 0.05
+  severe_max_ratio: 0.15

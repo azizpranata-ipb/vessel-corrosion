@@ -1,0 +1,28 @@
+services:
+  corrosion-api:
+    build: .
+    container_name: corrosion-api
+    ports:
+      - "8000:8000"
+    environment:
+      APP_CONFIG: /app/configs/app.yaml
+      MODEL_PATH: /app/models/best.pt
+      MAX_UPLOAD_BYTES: 15728640
+      CORS_ALLOW_ORIGINS: "*"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
