@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deteksi Korosi Lambung Kapal</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <span class="brand-mark">CH</span>
+          <div>
+            <strong>Corrosion Hull</strong>
+            <span>Inspection System</span>
+          </div>
+        </div>
+
+        <nav class="side-nav">
+          <button id="analysisTab" class="nav-button active" type="button">
+            <span>Analisis</span>
+          </button>
+          <button id="adminTab" class="nav-button hidden" type="button">
+            <span>Manajemen User</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span id="currentUser">-</span>
+          <a id="logoutLink" class="logout-link" href="/logout">Logout</a>
+        </div>
+      </aside>
+
+      <section class="content-shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">YOLOv8 Detection + OpenCV Segmentation</p>
+            <h1>Deteksi Korosi Lambung Kapal</h1>
+          </div>
+          <div class="status-pill">Ready</div>
+        </header>
+
+        <section id="analysisView">
+          <section class="hero-panel">
+            <div>
+              <h2>Upload Gambar Inspeksi</h2>
+              <p>Analisis bounding box korosi, segmentasi area, luas, rasio, dan severity.</p>
+            </div>
+
+            <form id="uploadForm" class="upload-form">
+              <label class="dropzone" for="imageInput">
+                <input id="imageInput" name="file" type="file" accept="image/png,image/jpeg,image/webp" required />
+                <span>Pilih gambar inspeksi drone</span>
+                <strong id="fileName">Belum ada file</strong>
+              </label>
+
+              <label class="field">
+                <span>Kalibrasi mm/pixel</span>
+                <input id="mmPerPixel" name="mm_per_pixel" type="number" min="0" step="0.0001" placeholder="Opsional" />
+              </label>
+
+              <button id="submitButton" type="submit">Analisis Gambar</button>
+            </form>
+          </section>
+
+          <section class="results-grid">
+            <article class="panel metric-panel">
+              <span>Total Deteksi</span>
+              <strong id="detectionCount">-</strong>
+            </article>
+            <article class="panel metric-panel">
+              <span>Luas Korosi</span>
+              <strong id="areaValue">-</strong>
+            </article>
+            <article class="panel metric-panel">
+              <span>Rasio Korosi</span>
+              <strong id="ratioValue">-</strong>
+            </article>
+            <article class="panel metric-panel">
+              <span>Severity</span>
+              <strong id="severityValue">-</strong>
+            </article>
+          </section>
+
+          <section class="viewer-grid">
+            <article class="panel image-panel">
+              <h2>Hasil Anotasi</h2>
+              <img id="annotatedImage" alt="Hasil anotasi deteksi korosi" />
+            </article>
+            <article class="panel image-panel">
+              <h2>Mask Segmentasi</h2>
+              <img id="maskImage" alt="Mask segmentasi area korosi" />
+            </article>
+          </section>
+
+          <section class="panel table-panel">
+            <h2>Detail Deteksi</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Confidence</th>
+                    <th>Bounding Box</th>
+                    <th>Area</th>
+                    <th>Rasio BBox</th>
+                    <th>Severity</th>
+                  </tr>
+                </thead>
+                <tbody id="detectionRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel json-panel">
+            <h2>JSON Response</h2>
+            <pre id="jsonOutput">{}</pre>
+          </section>
+        </section>
+
+        <section id="adminView" class="panel admin-panel hidden">
+          <div class="section-heading">
+            <h2>Manajemen User</h2>
+            <span>Tambah user umum, buat admin baru, atau hapus akun yang tidak dipakai.</span>
+          </div>
+
+          <form id="createUserForm" class="user-form">
+            <label class="field">
+              <span>Username</span>
+              <input id="newUsername" type="text" required />
+            </label>
+            <label class="field">
+              <span>Password</span>
+              <input id="newPassword" type="password" minlength="6" required />
+            </label>
+            <label class="field">
+              <span>Role</span>
+              <select id="newRole" required>
+                <option value="user">User Umum</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <button id="createUserButton" type="submit">Tambah User</button>
+          </form>
+
+          <p id="adminMessage" class="message"></p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="userRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/app.js?v=2"></script>
+  </body>
+</html>
