@@ -19,6 +19,7 @@ class DetectionResult(BaseModel):
     corrosion_area_cm2: float | None
     corrosion_ratio_in_bbox: float
     severity: str
+    severity_score: int
     dice_coefficient: float | None = None
 
 
@@ -28,6 +29,8 @@ class SummaryResult(BaseModel):
     total_corrosion_area_cm2: float | None
     corrosion_ratio: float
     severity: str
+    severity_score: float
+    severity_counts: dict[str, int]
 
 
 class ArtifactResult(BaseModel):

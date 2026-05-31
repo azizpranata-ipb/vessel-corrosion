@@ -108,6 +108,36 @@ Letakkan dataset dalam format YOLOv8, lalu jalankan:
 python scripts/train.py --data configs/data.yaml --model yolov8n.pt --epochs 100 --imgsz 640 --batch 16
 ```
 
+### Cropping/Tiling Gambar Besar
+
+Untuk gambar lambung kapal yang sangat lebar, detail korosi kecil bisa hilang jika seluruh gambar langsung di-resize ke `imgsz 640`. Gunakan tiling agar gambar dipotong menjadi patch `640x640` tanpa mengecilkan detail.
+
+Contoh untuk gambar dan label yang sudah dipisah:
+
+```bash
+python scripts/tile_yolo_dataset.py \
+  --images data/raw/images \
+  --labels data/raw/labels \
+  --out-images data/yolo/images/train \
+  --out-labels data/yolo/labels/train \
+  --tile-size 640 \
+  --overlap 128 \
+  --keep-empty
+```
+
+Jika belum ada label dan hanya ingin memotong gambar:
+
+```bash
+python scripts/tile_yolo_dataset.py \
+  --images data/raw/images \
+  --out-images data/processed/tiles \
+  --tile-size 640 \
+  --overlap 128 \
+  --keep-empty
+```
+
+`--overlap 128` membuat antar patch saling tumpang tindih agar korosi di batas tile tidak hilang. Jika label YOLO tersedia, script akan otomatis menyesuaikan koordinat bounding box ke setiap tile.
+
 Hasil training tersimpan di:
 
 ```text

@@ -6,12 +6,32 @@ __pycache__/
 .ruff_cache/
 
 runs/
+data/raw/images/*
+data/raw/label/*
+data/raw/labels/*
+data/processed/*
+data/yolo/images/train/*
+data/yolo/images/val/*
+data/yolo/images/test/*
+data/yolo/labels/train/*
+data/yolo/labels/val/*
+data/yolo/labels/test/*
+data/yolo/**/*.cache
 outputs/uploads/*
 outputs/predictions/*
 outputs/reports/*
 models/*.pt
+yolov8*.pt
 data/users.json
 
+!data/processed/.gitkeep
+!data/raw/.gitkeep
+!data/yolo/images/train/.gitkeep
+!data/yolo/images/val/.gitkeep
+!data/yolo/images/test/.gitkeep
+!data/yolo/labels/train/.gitkeep
+!data/yolo/labels/val/.gitkeep
+!data/yolo/labels/test/.gitkeep
 !outputs/uploads/.gitkeep
 !outputs/predictions/.gitkeep
 !outputs/reports/.gitkeep
