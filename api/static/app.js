@@ -200,7 +200,7 @@ function renderResult(payload) {
   detectionCount.textContent = payload.summary.detections;
   areaValue.textContent = formatArea(payload.summary);
   ratioValue.textContent = `${(payload.summary.corrosion_ratio * 100).toFixed(2)}%`;
-  severityValue.textContent = payload.summary.severity;
+  severityValue.textContent = `${payload.summary.severity} (${payload.summary.severity_score.toFixed(2)})`;
 
   annotatedImage.src = payload.artifacts.annotated_image_url || "";
   maskImage.src = payload.artifacts.mask_image_url || "";
@@ -215,13 +215,14 @@ function renderResult(payload) {
       <td>${formatDetectionArea(detection)}</td>
       <td>${(detection.corrosion_ratio_in_bbox * 100).toFixed(2)}%</td>
       <td>${detection.severity}</td>
+      <td>${detection.severity_score}</td>
     `;
     detectionRows.appendChild(tr);
   }
 
   if (payload.detections.length === 0) {
     const tr = document.createElement("tr");
-    tr.innerHTML = '<td colspan="6">Tidak ada korosi terdeteksi.</td>';
+    tr.innerHTML = '<td colspan="7">Tidak ada korosi terdeteksi.</td>';
     detectionRows.appendChild(tr);
   }
 

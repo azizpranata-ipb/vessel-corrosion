@@ -11,7 +11,7 @@ from src.corrosion.config import AppConfig
 from src.corrosion.dice import dice_coefficient, load_mask_grayscale
 from src.corrosion.schema import ArtifactResult, DetectionResult, ImageInfo, PredictionResponse, SummaryResult
 from src.corrosion.segmentation import area_cm2, mask_area_px, paste_roi_mask, segment_corrosion_roi
-from src.corrosion.severity import classify_severity
+from src.corrosion.severity import aggregate_severity, classify_severity, severity_score
 from src.corrosion.visualization import draw_annotations
 
 
@@ -87,13 +87,16 @@ class CorrosionAnalyzer:
                         corrosion_area_cm2=area_cm2(corrosion_area, mm_per_pixel),
                         corrosion_ratio_in_bbox=round(ratio_in_bbox, 6),
                         severity=severity,
+                        severity_score=severity_score(severity),
                         dice_coefficient=dice_value,
                     )
                 )
 
         total_area_px = mask_area_px(full_mask)
         total_ratio = total_area_px / image_area if image_area else 0.0
-        summary_severity = classify_severity(total_ratio, self.config.severity)
+        summary_severity, summary_score, severity_counts = aggregate_severity(
+            [detection.severity for detection in detections]
+        )
 
         artifacts = ArtifactResult()
         if output_dir is not None:
@@ -118,6 +121,8 @@ class CorrosionAnalyzer:
                 total_corrosion_area_cm2=area_cm2(total_area_px, mm_per_pixel),
                 corrosion_ratio=round(total_ratio, 6),
                 severity=summary_severity,
+                severity_score=summary_score,
+                severity_counts=severity_counts,
             ),
             detections=detections,
             artifacts=artifacts,

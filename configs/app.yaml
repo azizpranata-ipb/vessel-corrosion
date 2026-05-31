@@ -1,6 +1,6 @@
 model:
   path: models/best.pt
-  confidence_threshold: 0.25
+  confidence_threshold: 0.05
   iou_threshold: 0.45
   image_size: 640
 

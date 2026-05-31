@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from ultralytics import YOLO
+
+from src.corrosion.yolo_data import resolve_data_yaml
 
 
 def parse_args() -> argparse.Namespace:
@@ -18,9 +26,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    data_yaml = resolve_data_yaml(args.data)
     model = YOLO(args.weights)
     metrics = model.val(
-        data=args.data,
+        data=str(data_yaml),
         imgsz=args.imgsz,
         batch=args.batch,
         split=args.split,
