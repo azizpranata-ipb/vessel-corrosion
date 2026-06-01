@@ -78,14 +78,15 @@ def main() -> None:
         for tile_index, (x1, y1, x2, y2) in enumerate(generate_tiles(width, height, args.tile_size, args.overlap)):
             tile = image[y1:y2, x1:x2]
             tile_h, tile_w = tile.shape[:2]
-            remapped = remap_labels_to_tile(labels, width, height, x1, y1, tile_w, tile_h, args.min_visibility)
+            output_tile = pad_to_size(tile, args.tile_size)
+            remapped = remap_labels_to_tile(labels, width, height, x1, y1, tile_w, tile_h, args.tile_size, args.min_visibility)
 
             if not remapped and not args.keep_empty:
                 continue
 
             output_stem = f"{image_path.stem}_tile_{tile_index:04d}_x{x1}_y{y1}"
             output_image_path = out_image_dir / f"{output_stem}{image_path.suffix.lower()}"
-            cv2.imwrite(str(output_image_path), tile)
+            cv2.imwrite(str(output_image_path), output_tile)
 
             if out_label_dir:
                 output_label_path = out_label_dir / f"{output_stem}.txt"
@@ -120,6 +121,23 @@ def _positions(length: int, tile_size: int, step: int) -> list[int]:
     if positions[-1] != last:
         positions.append(last)
     return positions
+
+
+def pad_to_size(image, size: int):
+    height, width = image.shape[:2]
+    if width == size and height == size:
+        return image
+
+    padded = cv2.copyMakeBorder(
+        image,
+        top=0,
+        bottom=size - height,
+        left=0,
+        right=size - width,
+        borderType=cv2.BORDER_CONSTANT,
+        value=(0, 0, 0),
+    )
+    return padded
 
 
 def read_yolo_labels(label_path: Path) -> list[YoloBox]:
@@ -175,6 +193,7 @@ def remap_labels_to_tile(
     tile_y: int,
     tile_width: int,
     tile_height: int,
+    output_size: int,
     min_visibility: float,
 ) -> list[YoloBox]:
     remapped = []
@@ -200,7 +219,7 @@ def remap_labels_to_tile(
         local_y1 = clipped_y1 - tile_y
         local_x2 = clipped_x2 - tile_x
         local_y2 = clipped_y2 - tile_y
-        remapped.append(xyxy_to_yolo(label.class_id, local_x1, local_y1, local_x2, local_y2, tile_width, tile_height))
+        remapped.append(xyxy_to_yolo(label.class_id, local_x1, local_y1, local_x2, local_y2, output_size, output_size))
 
     return remapped
 

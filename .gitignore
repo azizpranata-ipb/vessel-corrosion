@@ -1,7 +1,9 @@
 .venv/
 .env
+.DS_Store
 __pycache__/
 *.pyc
+*.zip
 .pytest_cache/
 .ruff_cache/
 
@@ -23,6 +25,10 @@ outputs/reports/*
 models/*.pt
 yolov8*.pt
 data/users.json
+
+google_colab/data/
+google_colab/runs/
+google_colab/**/*.cache
 
 !data/processed/.gitkeep
 !data/raw/.gitkeep

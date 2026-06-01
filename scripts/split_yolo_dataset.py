@@ -67,12 +67,28 @@ def collect_pairs(image_dir: Path, label_dir: Path) -> list[tuple[Path, Path]]:
     for image_path in sorted(image_dir.iterdir()):
         if image_path.suffix.lower() not in IMAGE_EXTENSIONS:
             continue
-        label_path = label_dir / f"{image_path.stem}.txt"
+        label_path = find_label_path(label_dir, image_path.stem)
         if not label_path.exists():
             print(f"Skip missing label: {image_path.name}")
             continue
         pairs.append((image_path, label_path))
     return pairs
+
+
+def find_label_path(label_dir: Path, image_stem: str) -> Path:
+    exact = label_dir / f"{image_stem}.txt"
+    if exact.exists():
+        return exact
+
+    suffix_matches = sorted(label_dir.glob(f"*-{image_stem}.txt"))
+    if suffix_matches:
+        return suffix_matches[0]
+
+    contains_matches = sorted(label_dir.glob(f"*{image_stem}*.txt"))
+    if contains_matches:
+        return contains_matches[0]
+
+    return exact
 
 
 def prepare_output_dirs(out_root: Path, clear: bool) -> None:
