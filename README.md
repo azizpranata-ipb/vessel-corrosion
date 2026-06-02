@@ -138,6 +138,47 @@ python scripts/tile_yolo_dataset.py \
 
 `--overlap 128` membuat antar patch saling tumpang tindih agar korosi di batas tile tidak hilang. Jika label YOLO tersedia, script akan otomatis menyesuaikan koordinat bounding box ke setiap tile.
 
+### Dataset Optimized
+
+Eksperimen `data_optimized` dibuat untuk meningkatkan hasil evaluasi model setelah run awal menunjukkan precision, recall, dan mAP masih perlu dinaikkan. Fokus perbaikannya adalah kualitas data, bukan langsung memperbesar model.
+
+Langkah yang dilakukan:
+
+- Audit label di Label Studio agar bounding box korosi lebih konsisten.
+- Menghapus raw image yang tidak memiliki label korosi dari dataset positive.
+- Melakukan tiling ulang ke `640x640` dan me-remap label YOLO ke koordinat tile.
+- Menambahkan background/negative tile sekitar 20% agar model belajar membedakan area lambung yang tidak korosi.
+- Split dataset menjadi `80% train`, `15% test`, dan `5% val`.
+- Menambahkan augmentasi manual hanya pada `train`: brightness/contrast, Gaussian blur, dan salt-and-pepper noise.
+- Mematikan auto augment Ultralytics saat training agar gambar manual augmentation tidak terkena augmentasi ganda.
+
+Konfigurasi dataset optimized tersedia di:
+
+```text
+configs/data_optimized.yaml
+```
+
+Jika folder optimized di server diganti namanya menjadi `data/yolo`, training tetap bisa memakai `configs/data.yaml`. Jika foldernya tetap `data/yolo_optimized`, gunakan `configs/data_optimized.yaml`.
+
+Contoh training optimized dengan YOLOv8m dan SGD:
+
+```bash
+python scripts/train.py \
+  --data configs/data_optimized.yaml \
+  --model yolov8m.pt \
+  --epochs 150 \
+  --batch 8 \
+  --imgsz 640 \
+  --lr0 0.01 \
+  --lrf 0.01 \
+  --optimizer SGD \
+  --patience 40 \
+  --device 0 \
+  --workers 4 \
+  --no-auto-augment \
+  --name ship_corrosion_optimized_aug_yolov8m_sgd
+```
+
 Hasil training tersimpan di:
 
 ```text

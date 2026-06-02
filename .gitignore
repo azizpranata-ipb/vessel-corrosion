@@ -19,6 +19,9 @@ data/yolo/labels/train/*
 data/yolo/labels/val/*
 data/yolo/labels/test/*
 data/yolo/**/*.cache
+data/raw_optimized/
+data/yolo_optimized/
+labelstudio_imports/
 outputs/uploads/*
 outputs/predictions/*
 outputs/reports/*
