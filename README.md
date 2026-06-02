@@ -1,30 +1,37 @@
 # Ship Hull Corrosion Detection with YOLOv8
 
-Sistem end-to-end untuk mendeteksi korosi lambung kapal dari foto inspeksi drone menggunakan YOLOv8 Detection, lalu melakukan segmentasi area korosi di dalam bounding box dengan OpenCV untuk menghitung luas, Dice Coefficient, dan tingkat keparahan.
+This repository contains an end-to-end system for detecting corrosion on ship hulls from inspection images. The detection model is based on YOLOv8 object detection, and the application also includes a simple OpenCV-based post-processing pipeline to estimate corrosion area, severity, and optional Dice Coefficient when ground-truth masks are available.
 
-## Asumsi
+The project was developed for research on visual ship hull corrosion inspection, especially for images captured from drones or close-range inspection cameras.
 
-- Dataset memiliki 1 class: `corrosion`.
-- Training memakai YOLOv8 object detection, bukan segmentation.
-- Label YOLO berupa bounding box. Ground truth mask bersifat opsional dan hanya dipakai jika ingin menghitung Dice Coefficient terhadap mask manual.
-- Perhitungan luas default memakai satuan piksel. Jika tersedia faktor kalibrasi `mm_per_pixel`, luas juga dihitung dalam `cm2`.
-- Severity memakai aturan awal berbasis rasio area korosi terhadap area gambar dan bisa diubah di `configs/app.yaml`.
+## Key Ideas
 
-## Struktur Project
+- Detect ship hull corrosion using YOLOv8 bounding boxes.
+- Use image tiling to preserve small corrosion details in large or wide ship hull images.
+- Add negative/background tiles so the model learns what non-corrosion hull areas look like.
+- Compare baseline training with an optimized dataset workflow based on label auditing, background samples, and manual augmentation.
+- Provide scripts for training, evaluation, inference, and deployment through a REST API.
+
+## Assumptions
+
+- The dataset has one class: `corrosion`.
+- The YOLO model is trained for object detection, not segmentation.
+- YOLO labels are bounding boxes in normalized format.
+- Ground-truth masks are optional and are only needed if Dice Coefficient is evaluated.
+- Area estimation is calculated in pixels by default. If `mm_per_pixel` is provided, the API can also estimate area in `cm2`.
+- Severity rules are configurable in `configs/app.yaml`.
+
+## Project Structure
 
 ```text
 ship-corrosion-yolo/
 ├── api/
 │   ├── main.py
 │   └── static/
-│       ├── app.html
-│       ├── login.html
-│       ├── login.js
-│       ├── styles.css
-│       └── app.js
 ├── configs/
 │   ├── app.yaml
-│   └── data.yaml
+│   ├── data.yaml
+│   └── data_optimized.yaml
 ├── data/
 │   ├── raw/
 │   ├── processed/
@@ -37,54 +44,54 @@ ship-corrosion-yolo/
 │           ├── train/
 │           ├── val/
 │           └── test/
+├── google_colab/
 ├── models/
 ├── outputs/
-│   ├── predictions/
-│   └── reports/
 ├── scripts/
 │   ├── train.py
 │   ├── evaluate.py
-│   └── infer_image.py
+│   ├── infer_image.py
+│   ├── tile_yolo_dataset.py
+│   ├── tile_background_yolo_dataset.py
+│   └── augment_yolo_train.py
 ├── src/
 │   └── corrosion/
-│       ├── __init__.py
-│       ├── config.py
-│       ├── dice.py
-│       ├── inference.py
-│       ├── schema.py
-│       ├── segmentation.py
-│       ├── severity.py
-│       └── visualization.py
 ├── docker-compose.yml
 ├── Dockerfile
 ├── requirements.txt
 └── README.md
 ```
 
-## Format Dataset YOLOv8
+Dataset files, model weights, training runs, and generated outputs are ignored by Git to keep the repository lightweight.
 
-Setiap gambar memiliki file label `.txt` dengan nama sama:
+## YOLOv8 Dataset Format
+
+Each image must have a matching `.txt` label file with the same file stem:
 
 ```text
 data/yolo/images/train/ship_001.jpg
 data/yolo/labels/train/ship_001.txt
 ```
 
-Isi label YOLO:
+YOLO label format:
 
 ```text
 <class_id> <x_center> <y_center> <width> <height>
 ```
 
-Semua koordinat dinormalisasi 0 sampai 1. Karena hanya 1 class:
+All coordinates are normalized from `0` to `1`. Because this project uses one class, corrosion is class `0`:
 
 ```text
 0 0.5125 0.4380 0.2200 0.1800
 ```
 
-Konfigurasi dataset ada di `configs/data.yaml`.
+The default dataset config is:
 
-## Instalasi Lokal
+```text
+configs/data.yaml
+```
+
+## Local Installation
 
 ```bash
 python -m venv .venv
@@ -92,7 +99,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Di Windows PowerShell:
+For Windows PowerShell:
 
 ```powershell
 python -m venv .venv
@@ -100,67 +107,75 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Training YOLOv8
+## Training
 
-Letakkan dataset dalam format YOLOv8, lalu jalankan:
+Place the dataset in YOLOv8 format, then run:
 
 ```bash
-python scripts/train.py --data configs/data.yaml --model yolov8n.pt --epochs 100 --imgsz 640 --batch 16
+python scripts/train.py \
+  --data configs/data.yaml \
+  --model yolov8m.pt \
+  --epochs 100 \
+  --imgsz 640 \
+  --batch 16
 ```
 
-### Cropping/Tiling Gambar Besar
+Training outputs are saved under:
 
-Untuk gambar lambung kapal yang sangat lebar, detail korosi kecil bisa hilang jika seluruh gambar langsung di-resize ke `imgsz 640`. Gunakan tiling agar gambar dipotong menjadi patch `640x640` tanpa mengecilkan detail.
+```text
+runs/detect/<run_name>/weights/best.pt
+```
 
-Contoh untuk gambar dan label yang sudah dipisah:
+## Image Tiling
+
+Ship hull images are often very large or very wide. If the full image is resized directly to `640x640`, small corrosion regions can become too small for the model to learn well. Tiling solves this by cutting the original image into fixed-size patches while keeping local detail.
+
+Example for tiled images and labels:
 
 ```bash
 python scripts/tile_yolo_dataset.py \
   --images data/raw/images \
   --labels data/raw/labels \
-  --out-images data/yolo/images/train \
-  --out-labels data/yolo/labels/train \
+  --out-images data/processed/images \
+  --out-labels data/processed/labels \
   --tile-size 640 \
-  --overlap 128 \
-  --keep-empty
+  --overlap 128
 ```
 
-Jika belum ada label dan hanya ingin memotong gambar:
+If labels are available, the script remaps every bounding box from the original image coordinates into the correct tile coordinates. `--overlap 128` helps preserve corrosion objects located near tile boundaries.
+
+To keep empty tiles as negative/background samples, add:
 
 ```bash
-python scripts/tile_yolo_dataset.py \
-  --images data/raw/images \
-  --out-images data/processed/tiles \
-  --tile-size 640 \
-  --overlap 128 \
-  --keep-empty
+--keep-empty
 ```
 
-`--overlap 128` membuat antar patch saling tumpang tindih agar korosi di batas tile tidak hilang. Jika label YOLO tersedia, script akan otomatis menyesuaikan koordinat bounding box ke setiap tile.
+## Optimized Dataset Workflow
 
-### Dataset Optimized
+The `data_optimized` experiment was created after early evaluation results showed that precision, recall, and mAP still needed improvement. Instead of immediately using a larger model, the main focus was improving data quality and training signal.
 
-Eksperimen `data_optimized` dibuat untuk meningkatkan hasil evaluasi model setelah run awal menunjukkan precision, recall, dan mAP masih perlu dinaikkan. Fokus perbaikannya adalah kualitas data, bukan langsung memperbesar model.
+The optimized workflow includes:
 
-Langkah yang dilakukan:
+- Label auditing in Label Studio to make corrosion bounding boxes more consistent.
+- Removing raw images that do not contain corrosion from the positive dataset.
+- Re-tiling images into `640x640` patches and remapping YOLO labels correctly.
+- Adding around 20% background/negative tiles so the model learns non-corrosion hull regions.
+- Splitting the dataset into `80% train`, `15% test`, and `5% val`.
+- Applying manual augmentation only to the training split:
+  - brightness/contrast adjustment
+  - Gaussian blur
+  - salt-and-pepper noise
+- Disabling Ultralytics auto augmentation during training to avoid double augmentation.
 
-- Audit label di Label Studio agar bounding box korosi lebih konsisten.
-- Menghapus raw image yang tidak memiliki label korosi dari dataset positive.
-- Melakukan tiling ulang ke `640x640` dan me-remap label YOLO ke koordinat tile.
-- Menambahkan background/negative tile sekitar 20% agar model belajar membedakan area lambung yang tidak korosi.
-- Split dataset menjadi `80% train`, `15% test`, dan `5% val`.
-- Menambahkan augmentasi manual hanya pada `train`: brightness/contrast, Gaussian blur, dan salt-and-pepper noise.
-- Mematikan auto augment Ultralytics saat training agar gambar manual augmentation tidak terkena augmentasi ganda.
-
-Konfigurasi dataset optimized tersedia di:
+The optimized dataset config is:
 
 ```text
 configs/data_optimized.yaml
 ```
 
-Jika folder optimized di server diganti namanya menjadi `data/yolo`, training tetap bisa memakai `configs/data.yaml`. Jika foldernya tetap `data/yolo_optimized`, gunakan `configs/data_optimized.yaml`.
+If the optimized dataset folder is renamed to `data/yolo` on a server, `configs/data.yaml` can still be used. If the folder remains `data/yolo_optimized`, use `configs/data_optimized.yaml`.
 
-Contoh training optimized dengan YOLOv8m dan SGD:
+Recommended optimized training command:
 
 ```bash
 python scripts/train.py \
@@ -179,66 +194,110 @@ python scripts/train.py \
   --name ship_corrosion_optimized_aug_yolov8m_sgd
 ```
 
-Hasil training tersimpan di:
+## Manual Augmentation
 
-```text
-runs/detect/ship_corrosion/weights/best.pt
-```
+Manual augmentation is intended for the training split only. Validation and test data should remain unaugmented to keep evaluation fair.
 
-## Evaluasi Model
+Example:
 
 ```bash
-python scripts/evaluate.py --weights runs/detect/ship_corrosion/weights/best.pt --data configs/data.yaml
+python scripts/augment_yolo_train.py \
+  --images data/yolo/images/train \
+  --labels data/yolo/labels/train \
+  --out-images data/processed/augmented/images/train \
+  --out-labels data/processed/augmented/labels/train \
+  --fraction 0.5 \
+  --brightness-ratio 0.65 \
+  --blur-ratio 0.25 \
+  --noise-ratio 0.10 \
+  --seed 42 \
+  --clear
 ```
 
-Evaluasi YOLO menghasilkan precision, recall, mAP50, dan mAP50-95. Dice Coefficient untuk segmentasi OpenCV dapat dihitung jika Anda menyediakan mask ground truth.
+The recommended ratio is:
 
-## Inferensi Gambar Tunggal
+- `65%` brightness/contrast
+- `25%` Gaussian blur
+- `10%` salt-and-pepper noise
+
+## Evaluation
+
+Evaluate the best checkpoint on the validation split:
 
 ```bash
-python scripts/infer_image.py --weights runs/detect/ship_corrosion/weights/best.pt --image path/to/image.jpg
+python scripts/evaluate.py \
+  --weights runs/detect/ship_corrosion/weights/best.pt \
+  --data configs/data.yaml \
+  --split val
 ```
 
-Output:
+Evaluate on the test split for final reporting:
 
-- JSON hasil analisis.
-- Gambar anotasi di `outputs/predictions`.
+```bash
+python scripts/evaluate.py \
+  --weights runs/detect/ship_corrosion/weights/best.pt \
+  --data configs/data.yaml \
+  --split test
+```
+
+The evaluation script reports:
+
+- Precision
+- Recall
+- mAP50
+- mAP75
+- mAP50-95
+
+Dice Coefficient can be calculated only when ground-truth masks are available.
+
+## Single Image Inference
+
+```bash
+python scripts/infer_image.py \
+  --weights runs/detect/ship_corrosion/weights/best.pt \
+  --image path/to/image.jpg
+```
+
+Outputs:
+
+- JSON analysis result
+- Annotated image under `outputs/predictions`
 
 ## REST API
 
-Jalankan:
+Run the API locally:
 
 ```bash
 uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
-Buka:
+Open:
 
 ```text
 http://localhost:8000
 ```
 
-Login awal:
+Default login:
 
 ```text
 admin / admin123
 user / user123
 ```
 
-Role `user` hanya bisa upload dan analisis gambar. Role `admin` bisa upload gambar serta membuka menu manajemen user untuk tambah dan hapus user. Data user disimpan di `data/users.json` dan password disimpan sebagai hash PBKDF2.
+The `user` role can upload and analyze images. The `admin` role can also manage users. User data is stored in `data/users.json`, and passwords are stored as PBKDF2 hashes.
 
-Endpoint utama:
+Main endpoint:
 
 ```text
 POST /api/predict
 ```
 
-Form-data:
+Form data:
 
-- `file`: gambar inspeksi.
-- `mm_per_pixel`: opsional, contoh `0.5`.
+- `file`: inspection image
+- `mm_per_pixel`: optional calibration value, for example `0.5`
 
-## Format JSON Response API
+## API Response Example
 
 ```json
 {
@@ -277,97 +336,83 @@ Form-data:
 
 ## Docker
 
-Build dan jalankan:
+Build and run:
 
 ```bash
 docker compose up --build
 ```
 
-Aplikasi tersedia di:
+The app will be available at:
 
 ```text
 http://localhost:8000
 ```
 
-Gunakan volume `./models:/app/models` untuk memasukkan model production, misalnya:
+Use the `./models:/app/models` volume to provide a production model, for example:
 
 ```text
 models/best.pt
 ```
 
-### Docker Production
+## Docker Production
 
-Copy env template:
+Copy the environment template:
 
 ```bash
 cp .env.example .env
 ```
 
-Pastikan model sudah tersedia:
+Make sure the model exists:
 
 ```text
 models/best.pt
 ```
 
-Jalankan mode production:
+Run production mode:
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Cek container:
+Check the container:
 
 ```bash
 docker compose -f docker-compose.prod.yml ps
 docker logs -f corrosion-api
 ```
 
-Buka aplikasi:
+Open:
 
 ```text
 http://SERVER_IP:8000
 ```
 
-Data yang dipertahankan di luar container:
+Persistent data:
 
-- `data/users.json`: database user lokal.
-- `models/best.pt`: file model YOLOv8.
-- `outputs/`: upload dan hasil prediksi.
+- `data/users.json`: local user database
+- `models/best.pt`: YOLOv8 model file
+- `outputs/`: uploaded files and prediction outputs
 
-Jika ingin push image ke Docker Hub atau registry cloud:
+## Deployment to a Linux VPS
 
-```bash
-docker build -t username/ship-corrosion-yolo:1.0.0 .
-docker push username/ship-corrosion-yolo:1.0.0
-```
-
-Di server, ubah `image` pada `docker-compose.prod.yml` menjadi image registry tersebut, lalu jalankan:
-
-```bash
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
-```
-
-## Deployment ke VPS Linux
-
-1. Siapkan VPS Ubuntu 22.04/24.04.
-2. Install Docker dan Compose plugin.
-3. Clone repository ke server.
-4. Upload model YOLOv8 terbaik ke `models/best.pt`.
-5. Sesuaikan `.env` atau environment variable:
+1. Prepare an Ubuntu 22.04/24.04 VPS.
+2. Install Docker and the Compose plugin.
+3. Clone this repository.
+4. Upload the best YOLOv8 model to `models/best.pt`.
+5. Configure `.env` or environment variables:
 
 ```bash
 export MODEL_PATH=models/best.pt
 export APP_CONFIG=configs/app.yaml
 ```
 
-6. Jalankan:
+6. Start the service:
 
 ```bash
 docker compose up -d --build
 ```
 
-7. Pasang reverse proxy Nginx:
+7. Add an Nginx reverse proxy:
 
 ```nginx
 server {
@@ -385,19 +430,18 @@ server {
 }
 ```
 
-8. Aktifkan HTTPS dengan Certbot.
+8. Enable HTTPS with Certbot.
 
-## Best Practice Production
+## Production Notes
 
-- Simpan model di volume terpisah, bukan di image Docker.
-- Gunakan model path dari environment variable.
-- Batasi ukuran upload di FastAPI dan Nginx.
-- Validasi MIME type dan ekstensi file.
-- Simpan hasil prediksi dengan UUID agar nama file tidak bentrok.
-- Pisahkan training environment dan serving environment.
-- Jalankan API di belakang Nginx dengan HTTPS.
-- Aktifkan logging request dan error.
-- Monitor latency, jumlah deteksi, confidence rata-rata, dan ukuran file.
-- Versioning model: `models/yolov8_corrosion_v1.pt`, `v2.pt`, dan seterusnya.
-- Untuk luas fisik yang valid, lakukan kalibrasi kamera/drone dan simpan `mm_per_pixel` atau homography per inspeksi.
-- Untuk Dice Coefficient yang sah secara akademik, siapkan ground truth mask manual atau semi-manual, karena bounding box saja tidak cukup sebagai ground truth segmentasi.
+- Store model weights in a volume, not inside the Docker image.
+- Use environment variables for model and config paths.
+- Limit upload size in both FastAPI and Nginx.
+- Validate MIME type and file extension.
+- Save prediction outputs with UUID-based filenames.
+- Keep training and serving environments separate.
+- Run the API behind Nginx with HTTPS.
+- Monitor latency, detection count, average confidence, and file size.
+- Version model files, for example `models/yolov8_corrosion_v1.pt`.
+- For valid physical area estimation, calibrate the camera or drone and provide `mm_per_pixel` or homography information.
+- For academically valid Dice Coefficient reporting, prepare manual or semi-manual ground-truth masks. Bounding boxes alone are not enough for segmentation ground truth.
