@@ -1,6 +1,6 @@
-# Ship Hull Corrosion Detection with YOLOv8
+# Ship Hull Corrosion Detection — YOLO11
 
-This repository contains an end-to-end system for detecting corrosion on ship hulls from inspection images. The detection model is based on YOLOv8 object detection, and the application also includes a simple OpenCV-based post-processing pipeline to estimate corrosion area, severity, and optional Dice Coefficient when ground-truth masks are available.
+This repository contains an end-to-end system for detecting corrosion on ship hulls from inspection images. The detection model is based on YOLO11 object detection (upgraded from YOLOv8), and the application also includes a simple OpenCV-based post-processing pipeline to estimate corrosion area, severity, and optional Dice Coefficient when ground-truth masks are available.
 
 The project was developed for research on visual ship hull corrosion inspection, especially for images captured from drones or close-range inspection cameras.
 
@@ -24,45 +24,117 @@ The project was developed for research on visual ship hull corrosion inspection,
 ## Project Structure
 
 ```text
-ship-corrosion-yolo/
-├── api/
+vessel-corrosion/
+├── api/                         # REST API (FastAPI)
 │   ├── main.py
 │   └── static/
-├── configs/
-│   ├── app.yaml
+├── configs/                     # Dataset YAML configs
 │   ├── data.yaml
 │   └── data_optimized.yaml
-├── data/
+├── data/                        # Raw images and labels (git-ignored)
 │   ├── raw/
 │   ├── processed/
 │   └── yolo/
-│       ├── images/
-│       │   ├── train/
-│       │   ├── val/
-│       │   └── test/
-│       └── labels/
-│           ├── train/
-│           ├── val/
-│           └── test/
-├── google_colab/
-├── models/
-├── outputs/
-├── scripts/
-│   ├── train.py
-│   ├── evaluate.py
-│   ├── infer_image.py
-│   ├── tile_yolo_dataset.py
+├── models/                      # Model weights (git-ignored)
+├── outputs/                     # Predictions and reports (git-ignored)
+├── pipeline/                    # ← Google Colab training & testing package
+│   ├── training_colab.ipynb     #   Full Colab workflow notebook
+│   ├── requirements.txt         #   Python dependencies
+│   ├── configs/
+│   │   └── data.yaml            #   Dataset config (absolute Colab path)
+│   ├── scripts/
+│   │   ├── train.py             #   Training script (YOLO11l + AdamW + tuning)
+│   │   └── evaluate.py         #   Evaluation script (mAP, P, R per split)
+│   └── src/corrosion/
+│       └── yolo_data.py         #   Data path utilities
+├── scripts/                     # Local preprocessing scripts
+│   ├── tile_yolo_dataset.py     #   Tile large images into 640×640 patches
 │   ├── tile_background_yolo_dataset.py
+│   ├── split_yolo_dataset.py    #   Group-by-source train/val/test split
+│   ├── convert_yolo_seg_to_bbox.py  # Convert segmentation → detection labels
 │   └── augment_yolo_train.py
 ├── src/
 │   └── corrosion/
 ├── docker-compose.yml
 ├── Dockerfile
-├── requirements.txt
 └── README.md
 ```
 
-Dataset files, model weights, training runs, and generated outputs are ignored by Git to keep the repository lightweight.
+Dataset files, model weights, training runs, and generated outputs are excluded from Git to keep the repository lightweight.
+
+---
+
+## Pipeline — Google Colab Training & Testing
+
+The `pipeline/` folder is the main package for **training and evaluating the corrosion detection model on Google Colab** with GPU acceleration. All training outputs and model weights are saved directly to Google Drive so they are never lost when a Colab session ends.
+
+### What it contains
+
+| File | Purpose |
+|------|---------|
+| `training_colab.ipynb` | Complete end-to-end notebook (setup → tune → train → eval → predict) |
+| `scripts/train.py` | Training script with YOLO11l, AdamW optimizer, cosine LR, and light augmentation |
+| `scripts/evaluate.py` | Evaluation script — reports mAP50, mAP50-95, Precision, Recall per split |
+| `configs/data.yaml` | Dataset config pointing to `data/yolo_640/` (absolute Colab path) |
+| `requirements.txt` | Pinned dependencies compatible with Colab's torch and CUDA versions |
+
+### Notebook workflow
+
+```
+STEP 1  Mount Google Drive
+STEP 2  Check GPU (nvidia-smi)
+STEP 3  Extract zip and install requirements
+STEP 4  Verify dataset (tile counts per split)
+STEP 5  Hyperparameter tuning — Random Search (15 trials × 25 epochs)
+STEP 6  Full training with best hyperparameters (200 epochs, YOLO11l)
+STEP 7  Direct training without tuning (skip STEP 5 & 6 for faster run)
+STEP 8  Evaluate on validation set
+STEP 9  Evaluate on test set
+STEP 10 Display training curves (loss, mAP, P, R)
+STEP 11 Sample predictions on test images
+```
+
+### Model
+
+| Setting | Value |
+|---------|-------|
+| Model | YOLO11l (upgraded from YOLOv8l) |
+| Input size | 640×640 |
+| Optimizer | AdamW |
+| Epochs | 200 (with early stopping, patience=50) |
+| Augmentation | HSV, rotation ±15°, scale 50%, flip, mosaic, mixup, copy-paste |
+| LR schedule | Cosine annealing |
+
+### Dataset
+
+The dataset consists of 640×640 tiles cut from high-resolution ship hull inspection photos. Each source image is kept in a single split (train/val/test) to prevent data leakage between tiles from the same original photo.
+
+| Split | Purpose |
+|-------|---------|
+| train (70%) | Model training |
+| val (15%) | Hyperparameter selection and early stopping |
+| test (15%) | Final unbiased evaluation — run once only |
+
+Background (empty) tiles are included (~15% of dataset) to reduce false positives on non-corroded hull areas.
+
+### Output saved to Google Drive
+
+```
+My Drive/colab/vessel-corrosion-runs/
+├── detect/   ← model weights (best.pt, last.pt) and training plots
+├── eval/     ← validation and test evaluation results
+├── tune/     ← hyperparameter tuning results (tune_results.yaml)
+└── predictions/  ← annotated sample prediction images
+```
+
+### How to use
+
+1. Upload `training_colab_upload.zip` to `My Drive/colab/`
+2. Open `pipeline/training_colab.ipynb` in Google Colab
+3. Select a GPU runtime (T4 or A100)
+4. Run cells in order
+
+When adding new data in the future, re-training does not require re-running the hyperparameter tuning step — use the saved `tune_results.yaml` and run STEP 6 directly.
 
 ## YOLOv8 Dataset Format
 
