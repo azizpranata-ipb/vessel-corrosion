@@ -1,0 +1,7 @@
+path: training_colab/data/yolo_512_roboflow
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: corrosion
