@@ -1,4 +1,4 @@
-path: data/yolo
+path: /content/training_colab_upload/data/yolo_640
 train: images/train
 val: images/val
 test: images/test

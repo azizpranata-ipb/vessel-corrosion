@@ -16,20 +16,25 @@ from src.corrosion.yolo_data import resolve_data_yaml
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train YOLOv8 for ship hull corrosion detection.")
     parser.add_argument("--data", default="configs/data.yaml", help="Path to YOLO data.yaml.")
-    parser.add_argument("--model", default="yolov8n.pt", help="YOLOv8 base model or checkpoint.")
-    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--model", default="yolov8l.pt", help="YOLOv8 base model or checkpoint.")
+    parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--imgsz", type=int, default=640)
-    parser.add_argument("--batch", type=int, default=16)
-    parser.add_argument("--lr0", type=float, default=0.01, help="Initial learning rate.")
+    parser.add_argument("--batch", type=int, default=8)
+    parser.add_argument("--lr0", type=float, default=0.005, help="Initial learning rate.")
     parser.add_argument("--lrf", type=float, default=0.01, help="Final learning rate fraction.")
-    parser.add_argument("--optimizer", default="auto", help="Optimizer, e.g. auto, SGD, Adam, AdamW.")
-    parser.add_argument("--patience", type=int, default=30, help="Early stopping patience in epochs.")
+    parser.add_argument("--optimizer", default="AdamW", help="Optimizer: AdamW proven better for fine-tuning pretrained weights.")
+    parser.add_argument("--patience", type=int, default=50, help="Early stopping patience in epochs.")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument(
         "--no-auto-augment",
         action="store_true",
         help="Disable YOLO runtime augmentations for experiments with manually augmented data.",
+    )
+    parser.add_argument(
+        "--light-augment",
+        action="store_true",
+        help="Use a conservative runtime augmentation preset for corrosion detection.",
     )
     parser.add_argument("--project", default="runs/detect")
     parser.add_argument("--name", default="ship_corrosion")
@@ -39,6 +44,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.no_auto_augment and args.light_augment:
+        raise ValueError("--no-auto-augment and --light-augment cannot be used together.")
     if args.no_auto_augment:
         disable_albumentations()
 
@@ -60,6 +67,12 @@ def main() -> None:
         "workers": args.workers,
         "pretrained": True,
         "plots": True,
+        "cache": "ram",
+        "cos_lr": True,
+        "close_mosaic": 10,   # disable mosaic in final 10 epochs for stable convergence
+        "nbs": 64,            # nominal batch size — normalises gradients when batch<64
+        "warmup_epochs": 3.0,
+        "cls": 0.3,           # reduce classification loss weight for single-class task
     }
 
     if args.no_auto_augment:
@@ -80,6 +93,24 @@ def main() -> None:
                 "copy_paste": 0.0,
                 "auto_augment": None,
                 "erasing": 0.0,
+            }
+        )
+    elif args.light_augment:
+        train_kwargs.update(
+            {
+                "hsv_h": 0.015,
+                "hsv_s": 0.50,
+                "hsv_v": 0.40,
+                "degrees": 15.0,
+                "translate": 0.10,
+                "scale": 0.50,
+                "shear": 3.0,
+                "perspective": 0.0003,
+                "flipud": 0.3,
+                "fliplr": 0.5,
+                "mosaic": 1.0,
+                "mixup": 0.05,
+                "copy_paste": 0.0,
             }
         )
 

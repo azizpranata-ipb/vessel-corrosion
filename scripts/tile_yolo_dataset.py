@@ -32,12 +32,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--labels", default=None, help="Input YOLO label directory. Optional.")
     parser.add_argument("--out-images", required=True, help="Output tiled image directory.")
     parser.add_argument("--out-labels", default=None, help="Output tiled label directory. Optional.")
-    parser.add_argument("--tile-size", type=int, default=640)
+    parser.add_argument("--tile-size", type=int, default=512)
     parser.add_argument("--overlap", type=int, default=128)
     parser.add_argument(
         "--min-visibility",
         type=float,
-        default=0.35,
+        default=0.50,
         help="Minimum visible bbox area ratio to keep a clipped label in a tile.",
     )
     parser.add_argument(

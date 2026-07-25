@@ -134,20 +134,48 @@ Example for tiled images and labels:
 
 ```bash
 python scripts/tile_yolo_dataset.py \
-  --images data/raw/images \
-  --labels data/raw/labels \
-  --out-images data/processed/images \
-  --out-labels data/processed/labels \
-  --tile-size 640 \
-  --overlap 128
+  --images data/raw_new/images \
+  --labels data/raw_new/labels \
+  --out-images data/processed/images_512 \
+  --out-labels data/processed/labels_512
 ```
 
-If labels are available, the script remaps every bounding box from the original image coordinates into the correct tile coordinates. `--overlap 128` helps preserve corrosion objects located near tile boundaries.
+The default tiling configuration uses `512x512` tiles, `128` pixels of overlap
+(25%), and a minimum bounding-box visibility of `0.50`. If labels are available,
+the script remaps every bounding box from the original image coordinates into
+the correct tile coordinates. Tiles without a valid label are not saved unless
+`--keep-empty` is explicitly provided.
 
 To keep empty tiles as negative/background samples, add:
 
 ```bash
 --keep-empty
+```
+
+Split the generated tiles by source image to prevent tiles from the same
+original image appearing in multiple dataset splits:
+
+```bash
+python scripts/split_yolo_dataset.py \
+  --images data/processed/images_512 \
+  --labels data/processed/labels_512 \
+  --out-root data/processed/yolo_512 \
+  --train 0.80 \
+  --test 0.15 \
+  --val 0.05 \
+  --group-by-source \
+  --clear
+```
+
+Train the 512-pixel dataset with the conservative runtime augmentation preset:
+
+```bash
+python scripts/train.py \
+  --data configs/data_512.yaml \
+  --model yolov8m.pt \
+  --imgsz 512 \
+  --light-augment \
+  --name ship_corrosion_512_light_aug
 ```
 
 ## Optimized Dataset Workflow

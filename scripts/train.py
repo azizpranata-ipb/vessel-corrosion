@@ -31,6 +31,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Disable YOLO runtime augmentations for experiments with manually augmented data.",
     )
+    parser.add_argument(
+        "--light-augment",
+        action="store_true",
+        help="Use a conservative runtime augmentation preset for corrosion detection.",
+    )
     parser.add_argument("--project", default="runs/detect")
     parser.add_argument("--name", default="ship_corrosion")
     parser.add_argument("--device", default=None, help="Example: 0 for GPU, cpu for CPU.")
@@ -39,6 +44,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.no_auto_augment and args.light_augment:
+        raise ValueError("--no-auto-augment and --light-augment cannot be used together.")
     if args.no_auto_augment:
         disable_albumentations()
 
@@ -80,6 +87,24 @@ def main() -> None:
                 "copy_paste": 0.0,
                 "auto_augment": None,
                 "erasing": 0.0,
+            }
+        )
+    elif args.light_augment:
+        train_kwargs.update(
+            {
+                "hsv_h": 0.01,
+                "hsv_s": 0.20,
+                "hsv_v": 0.20,
+                "degrees": 7.0,
+                "translate": 0.05,
+                "scale": 0.10,
+                "shear": 0.0,
+                "perspective": 0.0,
+                "flipud": 0.0,
+                "fliplr": 0.5,
+                "mosaic": 0.20,
+                "mixup": 0.0,
+                "copy_paste": 0.0,
             }
         )
 

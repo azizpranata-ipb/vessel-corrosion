@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import random
+import re
 import shutil
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +25,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--val", type=float, default=0.2)
     parser.add_argument("--test", type=float, default=0.0)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--group-by-source",
+        action="store_true",
+        help="Keep all tiles from the same source image in one split.",
+    )
     parser.add_argument("--clear", action="store_true", help="Clear existing output split folders before copying.")
     return parser.parse_args()
 
@@ -40,24 +47,23 @@ def main() -> None:
     if not pairs:
         raise ValueError("No image/label pairs found.")
 
-    random.seed(args.seed)
-    random.shuffle(pairs)
-
-    train_count = int(len(pairs) * args.train)
-    val_count = int(len(pairs) * args.val)
-    splits = {
-        "train": pairs[:train_count],
-        "val": pairs[train_count : train_count + val_count],
-        "test": pairs[train_count + val_count :],
-    }
+    splits = split_pairs(
+        pairs,
+        train_ratio=args.train,
+        val_ratio=args.val,
+        test_ratio=args.test,
+        seed=args.seed,
+        group_by_source=args.group_by_source,
+    )
 
     prepare_output_dirs(out_root, args.clear)
 
-    for split_name, split_pairs in splits.items():
-        for image_path, label_path in split_pairs:
+    for split_name, split_items in splits.items():
+        for image_path, label_path in split_items:
             shutil.copy2(image_path, out_root / "images" / split_name / image_path.name)
             shutil.copy2(label_path, out_root / "labels" / split_name / label_path.name)
-        print(f"{split_name}: {len(split_pairs)} pairs")
+        source_count = len({source_stem(image_path.stem) for image_path, _ in split_items})
+        print(f"{split_name}: {len(split_items)} pairs from {source_count} source images")
 
     print(f"Total: {len(pairs)} pairs")
 
@@ -73,6 +79,50 @@ def collect_pairs(image_dir: Path, label_dir: Path) -> list[tuple[Path, Path]]:
             continue
         pairs.append((image_path, label_path))
     return pairs
+
+
+def split_pairs(
+    pairs: list[tuple[Path, Path]],
+    train_ratio: float,
+    val_ratio: float,
+    test_ratio: float,
+    seed: int,
+    group_by_source: bool,
+) -> dict[str, list[tuple[Path, Path]]]:
+    rng = random.Random(seed)
+    if not group_by_source:
+        shuffled = pairs.copy()
+        rng.shuffle(shuffled)
+        train_count = int(len(shuffled) * train_ratio)
+        val_count = int(len(shuffled) * val_ratio)
+        return {
+            "train": shuffled[:train_count],
+            "val": shuffled[train_count : train_count + val_count],
+            "test": shuffled[train_count + val_count :],
+        }
+
+    groups: dict[str, list[tuple[Path, Path]]] = defaultdict(list)
+    for pair in pairs:
+        groups[source_stem(pair[0].stem)].append(pair)
+
+    shuffled_groups = list(groups.values())
+    rng.shuffle(shuffled_groups)
+    train_groups = round(len(shuffled_groups) * train_ratio)
+    test_groups = round(len(shuffled_groups) * test_ratio)
+    val_groups = len(shuffled_groups) - train_groups - test_groups
+    group_splits = {
+        "train": shuffled_groups[:train_groups],
+        "val": shuffled_groups[train_groups : train_groups + val_groups],
+        "test": shuffled_groups[train_groups + val_groups : train_groups + val_groups + test_groups],
+    }
+    return {
+        split: [pair for group in split_groups for pair in group]
+        for split, split_groups in group_splits.items()
+    }
+
+
+def source_stem(tile_stem: str) -> str:
+    return re.sub(r"_tile_\d{4}_x\d+_y\d+$", "", tile_stem)
 
 
 def find_label_path(label_dir: Path, image_stem: str) -> Path:

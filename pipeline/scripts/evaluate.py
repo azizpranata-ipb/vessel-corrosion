@@ -17,10 +17,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate a trained YOLOv8 corrosion detector.")
     parser.add_argument("--weights", required=True, help="Path to trained model, e.g. runs/detect/.../best.pt")
     parser.add_argument("--data", default="configs/data.yaml")
-    parser.add_argument("--imgsz", type=int, default=640)
+    parser.add_argument("--imgsz", type=int, default=512)
     parser.add_argument("--batch", type=int, default=16)
     parser.add_argument("--split", default="val", choices=["train", "val", "test"])
+    parser.add_argument("--conf", type=float, default=0.001, help="Confidence threshold (0.001 for full mAP sweep).")
+    parser.add_argument("--iou", type=float, default=0.6, help="IoU threshold for NMS during evaluation.")
     parser.add_argument("--device", default=None)
+    parser.add_argument("--project", default=None, help="Directory to save evaluation results.")
+    parser.add_argument("--name", default=None, help="Sub-folder name inside --project.")
     return parser.parse_args()
 
 
@@ -28,14 +32,23 @@ def main() -> None:
     args = parse_args()
     data_yaml = resolve_data_yaml(args.data)
     model = YOLO(args.weights)
-    metrics = model.val(
+
+    val_kwargs = dict(
         data=str(data_yaml),
         imgsz=args.imgsz,
         batch=args.batch,
         split=args.split,
+        conf=args.conf,
+        iou=args.iou,
         device=args.device,
         plots=True,
     )
+    if args.project:
+        val_kwargs["project"] = args.project
+    if args.name:
+        val_kwargs["name"] = args.name
+
+    metrics = model.val(**val_kwargs)
 
     print("YOLOv8 Detection Metrics")
     print(f"mAP50-95: {metrics.box.map:.6f}")

@@ -30,8 +30,21 @@ yolov8*.pt
 data/users.json
 
 google_colab/data/
+google_colab/outputs/
 google_colab/runs/
 google_colab/**/*.cache
+training_colab/data/
+training_colab/outputs/
+training_colab/runs/
+training_colab/**/*.cache
+
+training_colab_upload/data/
+training_colab_upload/**/*.cache
+training_colab_upload/**/*.pt
+
+data/corrosion Instance Segmentation/
+data/raw_new/
+data/roboflow_yolo_bbox/
 
 !data/processed/.gitkeep
 !data/raw/.gitkeep
