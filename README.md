@@ -4,6 +4,17 @@ This repository contains an end-to-end system for detecting corrosion on ship hu
 
 The project was developed for research on visual ship hull corrosion inspection, especially for images captured from drones or close-range inspection cameras.
 
+## Sample Dataset Images
+
+Representative ship hull corrosion images from the training dataset. Red boxes show annotated corrosion regions (YOLO bounding boxes).
+
+| | | |
+|:---:|:---:|:---:|
+| ![Hull corrosion close-up](docs/images/sample_hull010.jpg) | ![Hull side view](docs/images/sample_hull015.jpg) | ![Hull corrosion patch](docs/images/sample_hull045.jpg) |
+| ![Inspection photo 1](docs/images/sample_IMG_3374.jpg) | ![Inspection photo 2](docs/images/sample_IMG_3389.jpg) | |
+
+---
+
 ## Key Ideas
 
 - Detect ship hull corrosion using YOLOv8 bounding boxes.
